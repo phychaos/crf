@@ -20,8 +20,8 @@ class LSTMCRF(nn.Module):
 	def forward(self, x):
 		mask, _ = x.ge(0).float().sum(dim=1)
 		out = self.rnn_layer(x)
-		loss, max_score, max_score_pre = self.crf(out, mask)
-		return loss
+		loss = self.crf(out, mask)
+		return -loss
 
 	def test(self, x):
 		mask, _ = x.ge(0).float().sum(dim=1)
