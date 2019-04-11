@@ -17,7 +17,7 @@ class BertNer(nn.Module):
 		super(BertNer, self).__init__()
 		self.bert_model = BertModel.from_pretrained(BERT_PRETAIN_PATH)
 		self.rnn = nn.GRU(num_units, rnn_hidden, num_layers=num_layers, batch_first=True, bidirectional=True)
-		self.linear = nn.Linear(2 * rnn_hidden, num_tags)
+		self.linear = nn.Linear(rnn_hidden, num_tags)
 		self.crf = CRF(num_tags)
 
 	def forward(self, x_data, y_data, masks, segment_ids):
