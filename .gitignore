@@ -5,7 +5,9 @@ __pycache__/
 
 # C extensions
 *.so
-
+bert_model/pytorch_model.bin
+data/gigaword_chn.all.a2b.uni.ite50.vec
+data/model_bert.pkl
 # Distribution / packaging
 .Python
 build/
