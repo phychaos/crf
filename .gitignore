@@ -8,6 +8,8 @@ __pycache__/
 bert_model/pytorch_model.bin
 data/gigaword_chn.all.a2b.uni.ite50.vec
 data/model_bert.pkl
+elmo_model/token_embedder.pkl
+elmo_model/encoder.pkl
 # Distribution / packaging
 .Python
 build/

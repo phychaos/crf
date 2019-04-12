@@ -1,1 +1,1 @@
-{"O": 3, "M": 1, "[SEP]": 2, "[CLS]": 0, "E": 4, "B": 5}
+{"B-EDU": 0, "E-NAME": 1, "E-EDU": 2, "M-NAME": 3, "M-LOC": 4, "B-CONT": 5, "B-PRO": 6, "B-TITLE": 7, "M-ORG": 8, "M-PRO": 9, "E-CONT": 10, "E-TITLE": 11, "B-RACE": 12, "O": 13, "E-PRO": 14, "M-CONT": 15, "B-ORG": 16, "[SEP]": 17, "B-LOC": 18, "S-RACE": 19, "M-EDU": 20, "B-NAME": 21, "M-RACE": 22, "[CLS]": 23, "S-NAME": 24, "S-ORG": 25, "E-LOC": 26, "E-ORG": 27, "M-TITLE": 28, "E-RACE": 29}

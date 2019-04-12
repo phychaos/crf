@@ -9,19 +9,19 @@ from tqdm import tqdm
 from core.metric import get_ner_fmeasure, recover_label, recover_bert_label
 from config.config import VOCAB_DATA, TAG2ID_JSON, EMBEDDING_DATA, epochs, MODEL_PATH
 from config.config import HyperParams as hp
-from core.preprocess import load_json_data, load_train_data, generate_batch_data
+from core.preprocess import load_json_data, load_train_data, generate_batch_data, preprocess, TokenizerElmoText
 from model.rnn_crf import RNNCRF
 import torch as th
 
 use_cuda = th.cuda.is_available()
 
 
-def run():
+def run_rnn():
+	# preprocess() # 预处理
 	train_x, train_y, test_x, test_y = load_train_data()
 	vocab = load_json_data(VOCAB_DATA)
 	tag2id = load_json_data(TAG2ID_JSON)
 	id2tag = {str(idx): tag for tag, idx in tag2id.items()}
-	# embedding = th.Tensor(load_json_data(EMBEDDING_DATA))
 	batch_size = hp.batch_size
 
 	model = RNNCRF(len(vocab), hp.embed_size, hp.num_units, hp.num_layers, len(tag2id), None, use_cuda)
@@ -80,9 +80,6 @@ def run_bert():
 	model.to(device)
 	optimizer = BertAdam(model.parameters(), lr=bp.lr, warmup=0.1)
 
-	# if os.path.isfile(MODEL_PATH):
-	# 	model.load_state_dict(th.load(MODEL_PATH))
-
 	def fit():
 		_train_loss = 0
 		ii = 0
@@ -111,7 +108,6 @@ def run_bert():
 		return round(_test_loss // ii, 4), paths
 
 	source_tag = token_text.test_y
-	max_f1 = 0
 	for epoch in range(epochs):
 		train_loss = fit()
 		test_loss, best_paths = test()
@@ -120,10 +116,61 @@ def run_bert():
 		print('epoch:\t{}\ttrain loss:\t{}\tdev loss:\t{}'.format(epoch, round(train_loss, 2), round(test_loss, 2)))
 		print('acc:\t{}\tp:\t{}\tr:\t{}\tf:\t{}'.format(acc, p, r, f))
 		print('****************************************************\n\n')
-		if max_f1 > f:
-			th.save(model.state_dict(), MODEL_PATH)
-			max_f1 = f
+
+
+def run_elmo():
+	from model.elmo_crf import test, ElmoNer
+	from config.config import ElmoParams as ep
+	from torch.optim import Adam
+	device = th.device('cuda' if use_cuda else 'cpu')
+	token_text = TokenizerElmoText(use_cuda, pre_process=False)
+	tag2id = token_text.tag2id
+	id2tag = {str(idx): tag for tag, idx in tag2id.items()}
+	num_tags = len(tag2id)
+	model = ElmoNer(ep.num_units, ep.rnn_hidden, num_tags, ep.num_layers, use_cuda)
+	model.to(device)
+	optimizer = Adam(model.parameters(), lr=ep.lr)
+
+	def fit():
+		_train_loss = 0
+		ii = 0
+		for ii, batch in enumerate(tqdm(token_text.generate_data('train', ep.batch_size), desc='训练')):
+			x_data, y_data, masks = batch
+			masks, y_data = masks.to(device), y_data.to(device)
+			optimizer.zero_grad()
+			loss = model(x_data, y_data, masks)
+			_train_loss += float(loss.item())
+			loss.backward()
+			optimizer.step()
+		return round(_train_loss / ii, 4)
+
+	def test():
+		_test_loss = 0
+		paths = []
+		ii = 0
+		with th.no_grad():
+			for ii, batch in enumerate(tqdm(token_text.generate_data('test', ep.batch_size), '测试')):
+				x_data, y_data, masks = batch
+				masks, y_data = masks.to(device), y_data.to(device)
+
+				loss = model(x_data, y_data, masks)
+				_test_loss += float(loss.item())
+				_best_paths = model.test(x_data, masks)
+				paths.extend(_best_paths)
+		return round(_test_loss // ii, 4), paths
+
+	source_tag = token_text.test_y
+	for epoch in range(epochs):
+		train_loss = fit()
+		test_loss, best_paths = test()
+		predicts = recover_label(best_paths, id2tag)
+		acc, p, r, f = get_ner_fmeasure(source_tag, predicts)
+		print('epoch:\t{}\ttrain loss:\t{}\tdev loss:\t{}'.format(epoch, round(train_loss, 2), round(test_loss, 2)))
+		print('acc:\t{}\tp:\t{}\tr:\t{}\tf:\t{}'.format(acc, p, r, f))
+		print('****************************************************\n\n')
 
 
 if __name__ == '__main__':
-	run_bert()
+	# run_rnn()
+	# run_bert()
+	run_elmo()

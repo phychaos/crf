@@ -4,8 +4,6 @@
 # @作者   : Lin lifang
 # @文件   : bert_crf.py
 from pytorch_pretrained_bert import BertModel, BertTokenizer
-from torch.autograd import Variable
-
 from config.config import BERT_PRETAIN_PATH
 from model.crf import CRF
 import torch
@@ -17,7 +15,8 @@ class BertNer(nn.Module):
 		super(BertNer, self).__init__()
 		self.bert_model = BertModel.from_pretrained(BERT_PRETAIN_PATH)
 		self.rnn = nn.GRU(num_units, rnn_hidden, num_layers=num_layers, batch_first=True, bidirectional=True)
-		self.linear = nn.Linear(rnn_hidden, num_tags)
+		self.linear = nn.Linear(2 * rnn_hidden, num_tags)
+		# self.linear = nn.Linear(num_units, num_tags)
 		self.crf = CRF(num_tags)
 
 	def forward(self, x_data, y_data, masks, segment_ids):
@@ -48,34 +47,15 @@ class BertNer(nn.Module):
 		return best_paths
 
 
-def create_mask(seq_lens, batch_size, max_len, cuda, batch_first=True):
-	""" Creates binary mask """
-	mask = Variable(torch.ones(batch_size, max_len).type(torch.ByteTensor))
-	if cuda:
-		mask = mask.cuda()
-	for i, l in enumerate(seq_lens):
-		if batch_first:
-			if l < max_len:
-				mask.data[i, l:] = 0
-		else:
-			if l < max_len:
-				mask.data[l:, i] = 0
-	return mask
-
-
 def test():
-	tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-	model = BertModel.from_pretrained('bert-base-chinese')
-	text = "你好,吃早饭了吗？"
+	tokenizer = BertTokenizer.from_pretrained(BERT_PRETAIN_PATH)
+	model = BertModel.from_pretrained(BERT_PRETAIN_PATH)
+	text = "[CLS]你好,吃早饭了吗？[SEP]"
 
 	tokenized_text = tokenizer.tokenize(text)
-	tokenized_text = ['[CLS]', '）', '、', '注', '册', '项', '目', '管', '理', '专', '家', '（', 'p', 'm', 'm', '）', '、', '项', '目',
-					  '经', '理', '。', '[SEP]']
-	token_text2= ['[CLS]', '你']
+
 	token_id = tokenizer.convert_tokens_to_ids(tokenized_text)
-	print(token_id)
-	exit()
-	segments_ids = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+	segments_ids = [0] * len(token_id)
 	tokens_tensor = torch.tensor([token_id])
 	segments_tensors = torch.tensor([segments_ids])
 

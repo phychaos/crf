@@ -16,7 +16,7 @@ class RNNCRF(nn.Module):
 		self.use_cuda = use_cuda
 		self.crf = CRF(num_tag)
 		self.embedding = nn.Embedding(vocab_size, embed_size, _weight=pre_train)
-		self.gru = nn.GRU(embed_size, num_units, num_layers=num_layers, batch_first=True, bidirectional=True)
+		self.rnn = nn.LSTM(embed_size, num_units, num_layers=num_layers, batch_first=True, bidirectional=True)
 		self.linear = nn.Linear(2 * num_units, num_tag)
 
 	def forward(self, x, y, seq_lens):
@@ -47,7 +47,7 @@ class RNNCRF(nn.Module):
 		batch_size, max_len = x.size()
 		mask = create_mask(seq_lens, batch_size, max_len, self.use_cuda)
 		embed = self.embedding(x)
-		out, _ = self.gru(embed)
+		out, _ = self.rnn(embed)
 		out = self.linear(out)
 		out = out.transpose(0, 1)
 		mask = mask.transpose(0, 1)

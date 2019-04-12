@@ -4,6 +4,7 @@ from config.config import *
 import numpy as np
 import json
 import torch as th
+import opencc
 
 PAD = '<pad>'
 UNK = '<unk>'
@@ -30,7 +31,7 @@ def load_json_data(filename):
 	return data
 
 
-def read_label_data(filename, split='\t'):
+def read_label_data(filename, split=' '):
 	"""
 	加载数据集
 	:param filename:
@@ -142,11 +143,10 @@ def text2idx(data, data2id, default=1):
 
 
 class TokenizerBertText(object):
-	def __init__(self, use_cuda, pre_process=False, max_len=50):
+	def __init__(self, use_cuda, pre_process=False):
 		from pytorch_pretrained_bert import BertTokenizer
-		self.max_len = max_len
 		self.use_cuda = use_cuda
-		self.tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
+		self.tokenizer = BertTokenizer.from_pretrained(BERT_PRETAIN_PATH)
 		self.vocab = load_data(chinese_vocab)
 		self.train_x = None
 		self.train_y = None
@@ -162,17 +162,18 @@ class TokenizerBertText(object):
 		x_data = []
 		y_data = []
 		masks = []
-		segment_ids = [[0] * self.max_len for _ in range(len(y))]
+		max_len = max([len(kk)+2 for kk in x])
+		segment_ids = [[0] * max_len for _ in range(len(y))]
 		for seq, label in zip(x, y):
 			for ii, word in enumerate(seq):
 				if word not in self.vocab:
 					seq[ii] = '[UNK]'
-			seq = seq[:self.max_len - 2]
-			label = label[:self.max_len - 2]
+			seq = seq[:max_len - 2]
+			label = label[:max_len - 2]
 			seq = ['[CLS]'] + seq + ['[SEP]']
 			label = ['[CLS]'] + label + ['[SEP]']
 			seq_len = len(seq)
-			pad = [0] * (self.max_len - seq_len)
+			pad = [0] * (max_len - seq_len)
 			seq_id = self.tokenizer.convert_tokens_to_ids(seq) + pad
 			label_id = [self.tag2id.get(tag, 0) for tag in label] + pad
 			x_data.append(seq_id)
@@ -226,6 +227,92 @@ class TokenizerBertText(object):
 		}
 		save_json_data(data, BERT_DATA_JSON)
 		save_json_data(self.tag2id, BERT_TAG2ID_JSON)
+
+
+class TokenizerElmoText(object):
+	def __init__(self, use_cuda, pre_process=False):
+		self.simplified_to_traditional = opencc.OpenCC('s2t')
+		self.use_cuda = use_cuda
+		self.train_x = None
+		self.train_y = None
+		self.test_x = None
+		self.test_y = None
+		self.tag2id = None
+		if pre_process:
+			self.pre_process()
+		else:
+			self.load_data()
+
+	def padding(self, x, y):
+		x_data = []
+		y_data = []
+		masks = []
+		max_len = max([len(kk) for kk in x])
+		for seq, label in zip(x, y):
+			seq_len = len(seq)
+			seq = seq[:max_len] + [PAD] * (max_len - seq_len)
+			label = label[:max_len]
+			pad = [0] * (max_len - seq_len)
+			label_id = [self.tag2id.get(tag, 0) for tag in label] + pad
+			x_data.append(seq)
+			y_data.append(label_id)
+			mask = [1] * seq_len + pad
+			masks.append(mask)
+		y_data = th.Tensor(y_data).long()
+		masks = th.Tensor(masks).long()
+		return x_data, y_data, masks
+
+	def generate_data(self, data_type, batch_size):
+		if data_type == 'train':
+			x, y = self.train_x, self.train_y
+		else:
+			x, y = self.test_x, self.test_y
+		sample_size = len(y)
+		total_epoch = sample_size // batch_size
+		print("total epoch:\t{}\tbatch_size:\t{}".format(total_epoch, batch_size))
+		data = []
+		for ii in range(total_epoch):
+			start, end = ii * batch_size, (ii + 1) * batch_size
+			if start >= sample_size:
+				continue
+			if end >= sample_size:
+				end = sample_size
+			x_data, y_data = x[start:end], y[start:end]
+			x_data, y_data, masks = self.padding(x_data, y_data)
+			data.append([x_data, y_data, masks])
+		return data
+
+	def load_data(self):
+		data = load_json_data(ELMO_DATA_JSON)
+		self.train_x = data['train_x']
+		self.train_y = data['train_y']
+		self.test_x = data['test_x']
+		self.test_y = data['test_y']
+		self.tag2id = load_json_data(ELMO_TAG2ID_JSON)
+
+	def pre_process(self):
+		self.train_x, self.train_y = read_label_data(TRAIN_PATH)
+		self.test_x, self.test_y = read_label_data(TEST_PATH)
+		labels = set()
+		for label in self.train_y:
+			labels.update(label)
+		self.train_x = self.s2t(self.train_x)
+		self.test_x = self.s2t(self.test_x)
+		labels = list(labels)
+		self.tag2id = {label: idx for idx, label in enumerate(labels)}
+		data = {
+			"train_x": self.train_x, "train_y": self.train_y,
+			"test_x": self.test_x, "test_y": self.test_y,
+		}
+		save_json_data(data, ELMO_DATA_JSON)
+		save_json_data(self.tag2id, ELMO_TAG2ID_JSON)
+
+	def s2t(self, data):
+		text = []
+		for line in data:
+			s = self.simplified_to_traditional.convert(' '.join(line))
+			text.append(s.split(' '))
+		return text
 
 
 def generate_batch_data(x, y, batch_size, use_cuda=False):
