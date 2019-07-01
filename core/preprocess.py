@@ -31,7 +31,7 @@ def load_json_data(filename):
 	return data
 
 
-def read_label_data(filename, split=' '):
+def read_label_data(filename, split='\t'):
 	"""
 	加载数据集
 	:param filename:
@@ -98,6 +98,7 @@ def preprocess():
 	for tag in train_y:
 		tags.update(tag)
 	tag2id = {tag: idx for idx, tag in enumerate(tags)}
+	print(tags)
 	train_x, train_y = text2idx(train_x, word2id), text2idx(train_y, tag2id, 0)
 	test_x, test_y = text2idx(test_x, word2id), text2idx(test_y, tag2id, 0)
 	dev_x, dev_y = text2idx(dev_x, word2id), text2idx(dev_y, tag2id, 0)
@@ -327,7 +328,7 @@ def generate_batch_data(x, y, batch_size, use_cuda=False):
 	from torch.autograd import Variable
 	sample_size = len(y)
 	total_epoch = sample_size // batch_size
-
+	print(total_epoch)
 	for ii in range(total_epoch):
 		start, end = ii * batch_size, (ii + 1) * batch_size
 		if start >= sample_size:

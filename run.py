@@ -18,22 +18,24 @@ use_cuda = th.cuda.is_available()
 
 def run_rnn():
 	# preprocess() # 预处理
+	# exit()
 	train_x, train_y, test_x, test_y = load_train_data()
 	vocab = load_json_data(VOCAB_DATA)
 	tag2id = load_json_data(TAG2ID_JSON)
 	id2tag = {str(idx): tag for tag, idx in tag2id.items()}
 	batch_size = hp.batch_size
-
+	
 	model = RNNCRF(len(vocab), hp.embed_size, hp.num_units, hp.num_layers, len(tag2id), None, use_cuda)
 	if use_cuda:
 		model.cuda()
 	optimizer = optim.Adam(model.parameters())
 	scheduler = StepLR(optimizer, step_size=1, gamma=hp.lr_decay)
-
+	
 	def fit():
 		_train_loss = 0
 		step = 0
-		for x_data, y_data, seq_lens in generate_batch_data(train_x, train_y, batch_size, use_cuda):
+		model.train()
+		for x_data, y_data, seq_lens in tqdm(generate_batch_data(train_x, train_y, batch_size, use_cuda), desc='训练'):
 			step += 1
 			optimizer.zero_grad()
 			loss = model(x_data, y_data, seq_lens)
@@ -41,19 +43,20 @@ def run_rnn():
 			loss.backward()
 			optimizer.step()
 		return _train_loss / step
-
+	
 	def test():
 		_test_loss = 0
 		paths = []
 		step = 0
+		model.eval()
 		with th.no_grad():
-			for x_data, y_data, seq_lens in generate_batch_data(test_x, test_y, batch_size, use_cuda):
+			for x_data, y_data, seq_lens in tqdm(generate_batch_data(test_x, test_y, batch_size, use_cuda), desc='测试'):
 				step += 1
 				loss, _best_paths = model.test(x_data, y_data, seq_lens)
 				paths.extend(_best_paths)
 				_test_loss += float(loss.item())
 		return _test_loss / step, paths
-
+	
 	source_tag = recover_label(test_y, id2tag)
 	for epoch in range(epochs):
 		scheduler.step()
@@ -79,7 +82,7 @@ def run_bert():
 	model = BertNer(bp.num_units, bp.rnn_hidden, num_tags, bp.num_layers)
 	model.to(device)
 	optimizer = BertAdam(model.parameters(), lr=bp.lr, warmup=0.1)
-
+	
 	def fit():
 		_train_loss = 0
 		ii = 0
@@ -92,7 +95,7 @@ def run_bert():
 			loss.backward()
 			optimizer.step()
 		return round(_train_loss / ii, 4)
-
+	
 	def test():
 		_test_loss = 0
 		paths = []
@@ -106,7 +109,7 @@ def run_bert():
 				_best_paths = model.test(x_data, masks, segment_ids)
 				paths.extend(_best_paths)
 		return round(_test_loss // ii, 4), paths
-
+	
 	source_tag = token_text.test_y
 	for epoch in range(epochs):
 		train_loss = fit()
@@ -130,7 +133,7 @@ def run_elmo():
 	model = ElmoNer(ep.num_units, ep.rnn_hidden, num_tags, ep.num_layers, use_cuda)
 	model.to(device)
 	optimizer = Adam(model.parameters(), lr=ep.lr)
-
+	
 	def fit():
 		_train_loss = 0
 		ii = 0
@@ -143,7 +146,7 @@ def run_elmo():
 			loss.backward()
 			optimizer.step()
 		return round(_train_loss / ii, 4)
-
+	
 	def test():
 		_test_loss = 0
 		paths = []
@@ -152,13 +155,13 @@ def run_elmo():
 			for ii, batch in enumerate(tqdm(token_text.generate_data('test', ep.batch_size), '测试')):
 				x_data, y_data, masks = batch
 				masks, y_data = masks.to(device), y_data.to(device)
-
+				
 				loss = model(x_data, y_data, masks)
 				_test_loss += float(loss.item())
 				_best_paths = model.test(x_data, masks)
 				paths.extend(_best_paths)
 		return round(_test_loss // ii, 4), paths
-
+	
 	source_tag = token_text.test_y
 	for epoch in range(epochs):
 		train_loss = fit()
@@ -171,6 +174,6 @@ def run_elmo():
 
 
 if __name__ == '__main__':
-	# run_rnn()
-	# run_bert()
-	run_elmo()
+	run_rnn()
+# run_bert()
+# run_elmo()

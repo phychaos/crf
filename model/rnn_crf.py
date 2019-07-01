@@ -4,7 +4,7 @@
 # @作者   : Lin lifang
 # @文件   : rnn_crf.py
 import torch.nn as nn
-from model.crf import CRF
+from model.crf import NeuralCRF as CRF
 from torch.autograd import Variable
 import torch as th
 
@@ -14,7 +14,7 @@ class RNNCRF(nn.Module):
 		super(RNNCRF, self).__init__()
 		self.num_tag = num_tag
 		self.use_cuda = use_cuda
-		self.crf = CRF(num_tag)
+		self.crf = CRF(num_tag, use_cuda=use_cuda)
 		self.embedding = nn.Embedding(vocab_size, embed_size, _weight=pre_train)
 		self.rnn = nn.LSTM(embed_size, num_units, num_layers=num_layers, batch_first=True, bidirectional=True)
 		self.linear = nn.Linear(2 * num_units, num_tag)

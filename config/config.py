@@ -3,11 +3,11 @@
 
 import os
 
-TRAIN_PATH = os.path.join(os.getcwd(), 'data/train.char.bmes')
-# TRAIN_PATH = os.path.join(os.getcwd(), 'data/model_zhusu_ZZ')
-DEV_PATH = os.path.join(os.getcwd(), 'data/dev.char.bmes')
-TEST_PATH = os.path.join(os.getcwd(), 'data/test.char.bmes')
-# TEST_PATH = os.path.join(os.getcwd(), 'data/dev.data')
+# TRAIN_PATH = os.path.join(os.getcwd(), 'data/train.char.bmes')
+TRAIN_PATH = os.path.join(os.getcwd(), 'data/train_ner.data')
+DEV_PATH = os.path.join(os.getcwd(), 'data/test_ner.data')
+# TEST_PATH = os.path.join(os.getcwd(), 'data/test.char.bmes')
+TEST_PATH = os.path.join(os.getcwd(), 'data/test_ner.data')
 
 PRE_TRAIN_DATA = os.path.join(os.getcwd(), 'data/gigaword_chn.all.a2b.uni.ite50.vec')
 EMBEDDING_DATA = os.path.join(os.getcwd(), 'data/embedding.json')
