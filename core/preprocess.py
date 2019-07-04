@@ -1,5 +1,7 @@
 #!/usr/bin python3
 # -*- coding: utf-8 -*-
+import copy
+
 from config.config import *
 import numpy as np
 import json
@@ -66,7 +68,7 @@ def build_vocab(filename, embed_size=50):
 	:return:
 	"""
 	word2id = {PAD: PAD2ID, UNK: UNK2ID}
-
+	
 	pad2vec = [0] * embed_size
 	unk2vec = [float(ii) for ii in np.random.random(embed_size)]
 	embedding = [pad2vec, unk2vec]
@@ -94,10 +96,11 @@ def preprocess():
 	test_x, test_y = read_label_data(TEST_PATH)
 	dev_x, dev_y = read_label_data(DEV_PATH)
 	word2id = load_json_data(VOCAB_DATA)
-	tags = set()
+	tags = set([])
 	for tag in train_y:
 		tags.update(tag)
-	tag2id = {tag: idx for idx, tag in enumerate(tags)}
+	tag2id = {tag: idx + 1 for idx, tag in enumerate(tags)}
+	tag2id['sos'] = 0
 	print(tags)
 	train_x, train_y = text2idx(train_x, word2id), text2idx(train_y, tag2id, 0)
 	test_x, test_y = text2idx(test_x, word2id), text2idx(test_y, tag2id, 0)
@@ -158,12 +161,12 @@ class TokenizerBertText(object):
 			self.pre_process()
 		else:
 			self.load_data()
-
+	
 	def padding(self, x, y):
 		x_data = []
 		y_data = []
 		masks = []
-		max_len = max([len(kk)+2 for kk in x])
+		max_len = max([len(kk) + 2 for kk in x])
 		segment_ids = [[0] * max_len for _ in range(len(y))]
 		for seq, label in zip(x, y):
 			for ii, word in enumerate(seq):
@@ -184,7 +187,7 @@ class TokenizerBertText(object):
 		x_data, y_data, segment_ids = th.Tensor(x_data).long(), th.Tensor(y_data).long(), th.Tensor(segment_ids).long()
 		masks = th.Tensor(masks).long()
 		return x_data, y_data, masks, segment_ids
-
+	
 	def generate_data(self, data_type, batch_size):
 		if data_type == 'train':
 			x, y = self.train_x, self.train_y
@@ -204,7 +207,7 @@ class TokenizerBertText(object):
 			x_data, y_data, masks, segment_ids = self.padding(x_data, y_data)
 			data.append([x_data, y_data, masks, segment_ids])
 		return data
-
+	
 	def load_data(self):
 		data = load_json_data(BERT_DATA_JSON)
 		self.train_x = data['train_x']
@@ -212,7 +215,7 @@ class TokenizerBertText(object):
 		self.test_x = data['test_x']
 		self.test_y = data['test_y']
 		self.tag2id = load_json_data(BERT_TAG2ID_JSON)
-
+	
 	def pre_process(self):
 		self.train_x, self.train_y = read_label_data(TRAIN_PATH)
 		self.test_x, self.test_y = read_label_data(TEST_PATH)
@@ -243,7 +246,7 @@ class TokenizerElmoText(object):
 			self.pre_process()
 		else:
 			self.load_data()
-
+	
 	def padding(self, x, y):
 		x_data = []
 		y_data = []
@@ -262,7 +265,7 @@ class TokenizerElmoText(object):
 		y_data = th.Tensor(y_data).long()
 		masks = th.Tensor(masks).long()
 		return x_data, y_data, masks
-
+	
 	def generate_data(self, data_type, batch_size):
 		if data_type == 'train':
 			x, y = self.train_x, self.train_y
@@ -282,7 +285,7 @@ class TokenizerElmoText(object):
 			x_data, y_data, masks = self.padding(x_data, y_data)
 			data.append([x_data, y_data, masks])
 		return data
-
+	
 	def load_data(self):
 		data = load_json_data(ELMO_DATA_JSON)
 		self.train_x = data['train_x']
@@ -290,7 +293,7 @@ class TokenizerElmoText(object):
 		self.test_x = data['test_x']
 		self.test_y = data['test_y']
 		self.tag2id = load_json_data(ELMO_TAG2ID_JSON)
-
+	
 	def pre_process(self):
 		self.train_x, self.train_y = read_label_data(TRAIN_PATH)
 		self.test_x, self.test_y = read_label_data(TEST_PATH)
@@ -307,7 +310,7 @@ class TokenizerElmoText(object):
 		}
 		save_json_data(data, ELMO_DATA_JSON)
 		save_json_data(self.tag2id, ELMO_TAG2ID_JSON)
-
+	
 	def s2t(self, data):
 		text = []
 		for line in data:
@@ -325,10 +328,11 @@ def generate_batch_data(x, y, batch_size, use_cuda=False):
 	:param use_cuda:
 	:return:
 	"""
+	x = copy.deepcopy(x)
+	y = copy.deepcopy(y)
 	from torch.autograd import Variable
 	sample_size = len(y)
 	total_epoch = sample_size // batch_size
-	print(total_epoch)
 	for ii in range(total_epoch):
 		start, end = ii * batch_size, (ii + 1) * batch_size
 		if start >= sample_size:

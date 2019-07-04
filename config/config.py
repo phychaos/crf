@@ -5,7 +5,7 @@ import os
 
 # TRAIN_PATH = os.path.join(os.getcwd(), 'data/train.char.bmes')
 TRAIN_PATH = os.path.join(os.getcwd(), 'data/train_ner.data')
-DEV_PATH = os.path.join(os.getcwd(), 'data/test_ner.data')
+DEV_PATH = os.path.join(os.getcwd(), 'data/test.char.bmes')
 # TEST_PATH = os.path.join(os.getcwd(), 'data/test.char.bmes')
 TEST_PATH = os.path.join(os.getcwd(), 'data/test_ner.data')
 
@@ -29,7 +29,7 @@ epochs = 30
 class HyperParams:
 	num_layers = 1
 	batch_size = 32
-	lr = 5e-3
+	lr = 1e-2
 	num_units = 200
 	embed_size = 512
 	lr_decay = 0.9

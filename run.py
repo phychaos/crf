@@ -28,7 +28,7 @@ def run_rnn():
 	model = RNNCRF(len(vocab), hp.embed_size, hp.num_units, hp.num_layers, len(tag2id), None, use_cuda)
 	if use_cuda:
 		model.cuda()
-	optimizer = optim.Adam(model.parameters())
+	optimizer = optim.SGD(model.parameters(),lr=hp.lr,momentum=0.9,)
 	scheduler = StepLR(optimizer, step_size=1, gamma=hp.lr_decay)
 	
 	def fit():
@@ -38,9 +38,10 @@ def run_rnn():
 		for x_data, y_data, seq_lens in tqdm(generate_batch_data(train_x, train_y, batch_size, use_cuda), desc='训练'):
 			step += 1
 			optimizer.zero_grad()
-			loss = model(x_data, y_data, seq_lens)
+			loss, _ = model(x_data, y_data, seq_lens)
 			_train_loss += float(loss.item())
 			loss.backward()
+			th.nn.utils.clip_grad_norm_(model.parameters(), 5)
 			optimizer.step()
 		return _train_loss / step
 	
@@ -66,7 +67,7 @@ def run_rnn():
 		acc, p, r, f = get_ner_fmeasure(source_tag, predicts)
 		print('epoch:\t{}\ttrain loss:\t{}\tdev loss:\t{}'.format(epoch, round(train_loss, 4), round(test_loss, 4)))
 		print('acc:\t{}\tp:\t{}\tr:\t{}\tf:\t{}'.format(acc, p, r, f))
-		print('****************************************************\n\n')
+		print('****************************************************\n')
 
 
 def run_bert():

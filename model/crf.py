@@ -13,22 +13,46 @@ import numpy as np
 import torch.nn.functional as F
 
 
+def construct_label_embedding(num_labels, label_dim, embedd_type):
+	if embedd_type == 'one_hot':
+		table = np.eye(num_labels, dtype=np.float32)
+	elif embedd_type == 'random':
+		scale = np.sqrt(3.0 / label_dim)
+		table = np.random.uniform(-scale, scale, [num_labels, label_dim]).astype(np.float32)
+	else:
+		raise ValueError("embedd type should choose from [one_hot, random]")
+	return table
+
+
 class NeuralCRF(nn.Module):
-	def __init__(self, num_tag, embed_size=100, hidden_size=100, use_cuda=False):
+	def __init__(self, num_tag, embed_size=100, hidden_size=100, use_cuda=False, num_layers=1, num_units=200):
 		super(NeuralCRF, self).__init__()
+		self.num_layers = num_layers
+		self.num_units = 2 * num_units
 		self.num_tag = num_tag
-		self.y0 = num_tag
-		self.topk = num_tag
+		self.y0 = 0
+		self.topk = 20
 		self.hidden_size = hidden_size
 		self.use_cuda = use_cuda
 		self.device = th.device('cuda' if use_cuda else 'cpu')
-		self.embedding = nn.Embedding(num_tag + 1, embed_size)
-		self.gru = nn.GRU(embed_size, hidden_size, batch_first=True)
+		embed_label_table = construct_label_embedding(num_tag, None, 'one_hot')
+		label_embed_tensor = th.from_numpy(embed_label_table)
+		self.embedding = nn.Embedding.from_pretrained(label_embed_tensor, freeze=True)
+		self.nll_loss = nn.NLLLoss()
+		self.gru = nn.GRU(num_tag, hidden_size, batch_first=True)
 		self.linear = nn.Linear(hidden_size, num_tag)
+		
+		self.jt_nn = nn.Linear(self.num_units + hidden_size, hidden_size)
+		self.dense = nn.Linear(hidden_size, num_tag)
 	
-	def init_hidden(self, batch_size):
-		h = Variable(th.zeros(1, batch_size, self.hidden_size)).to(self.device)
+	def init_hidden(self, dtype, size):
+		h = th.zeros(size, dtype=dtype, device=self.device)
 		return h
+	
+	def init_label(self, dtype, size):
+		x = th.zeros(size, dtype=dtype, device=self.device)
+		x.fill_(self.y0)
+		return x.long()
 	
 	def forward(self, emissions, tags, mask):
 		"""
@@ -39,260 +63,177 @@ class NeuralCRF(nn.Module):
 		:return: log(p)
 		"""
 		mask = mask.float()
-		seq_len, batch_size, num_tag = emissions.size()
+		batch_size, seq_len, num_tag = emissions.size()
 		path_score = self.path_score(emissions, tags, batch_size, seq_len, mask)
-		scores = self.log_partition(emissions, batch_size, seq_len, mask)
-		
-		log_z = self._log_sum_exp(scores,  dim=1)
-		likelihood = path_score - log_z
-		return likelihood.sum()
+		with th.no_grad():
+			search_results, search_bps, search_scores = self.beam_search_decode(emissions, batch_size, seq_len,
+																				mask)
+		search_tags, path = self.search_backward(search_results, search_bps, search_scores, mask)
+		beam_scores = self.beam_search_scores(emissions, search_tags, batch_size, seq_len, mask)
+		loss, _, _ = self.loss(path_score, tags, beam_scores, search_tags, batch_size, seq_len, mask)
+		return loss, path
 	
-	def rnn_forward(self, batch_size, x=None, h=None):
-		if x is None:
-			x = Variable(th.ones((batch_size, 1), ).long() * self.y0).to(self.device)
+	def loss(self, path_score, target, search_score, search_target, batch_size, seq_len, mask):
+		"""
+		损失函数
+		:param path_score: [batch*seq_len, num_tag]
+		:param target: [batch ,seq_len]
+		:param search_score: [batch*topk*seq_len, num_tag]
+		:param search_target: [batch,topk,seq_len]
+		:param batch_size:
+		:param seq_len:
+		:param mask: batch seq_len
+		:return:
+		"""
+		target = target.view(-1)
+		search_target = search_target.view(-1)
 		
-		if h is None:
-			h = self.init_hidden(batch_size)
-		x = self.embedding(x)
-		out, h = self.gru(x, h)
-		return out, h
+		sample_mask = mask.repeat(1, self.topk).view(batch_size * self.topk, -1)
+		
+		# sum(score[i] * y[i]) ==> batch * seq_len
+		data_loss = -self.nll_loss(path_score, target) * mask.view(-1)
+		
+		# batch topk seq_len
+		sample_loss = -self.nll_loss(search_score, search_target) * sample_mask.contiguous().view(-1)
+		
+		data_loss = data_loss.contiguous().view(batch_size, 1, seq_len)
+		sample_loss = sample_loss.contiguous().view(batch_size, self.topk, seq_len)
+		sample_loss = th.cat((data_loss, sample_loss), dim=1)
+		data_loss = data_loss.sum() / batch_size
+		# 路径分数之和 logz =log( sum(exp(sum(path_score))) )
+		sample_loss = th.logsumexp(th.sum(sample_loss, dim=2), dim=1)
+		sample_loss = th.mean(sample_loss, dim=0)
+		# 损失函数 负对数似然函数 -log(exp(path_score)/z) = logz - path_score
+		loss = sample_loss - data_loss
+		# print(loss.item(), sample_loss.item(), data_loss.item())
+		return loss, data_loss, sample_loss
+	
+	def beam_search_scores(self, emissions, search_tags, batch_size, seq_len, mask):
+		
+		emissions = emissions.contiguous().view(batch_size, -1).repeat(1, self.topk).view(-1, self.num_units)
+		sos_mat = self.init_label(th.int64, (batch_size, self.topk, 1))
+		
+		x = th.cat((sos_mat, search_tags), dim=2)[:, :, :-1].view(-1, seq_len)
+		input_embed = self.embedding(x)
+		output, h = self.gru(input_embed)  # batch*topk seq_len hidden
+		scores = self.joint_network(emissions,
+									output.contiguous().view(-1, self.hidden_size))  # batch*topk*seq_len num_tag
+		return scores
+	
+	def joint_network(self, trans_output, pred_output):
+		projection = th.cat([trans_output, pred_output], dim=1)
+		
+		projection = th.tanh(self.jt_nn(projection))
+		
+		joint_output = self.dense(projection)
+		
+		return joint_output
 	
 	def path_score(self, emissions, tags, batch_size, seq_len, mask):
 		"""
 		路径分数
-		:param emissions:
-		:param tags:
+		:param emissions: batch seq_len hidden
+		:param tags: batch seq_len
 		:param batch_size:
 		:param seq_len:
 		:param mask:
 		:return: w*f 真是路径特征分数
 		"""
-		out, h = self.rnn_forward(batch_size)
-		transitions = self.linear(out.squeeze(1))
-		cur_tag = tags[0].view(-1, 1)
-		scores = transitions.gather(1, cur_tag).squeeze(1) + emissions[0].gather(1, cur_tag).squeeze(1)
-		scores = scores * mask[0]
+		sos_mat = self.init_label(th.int64, (batch_size, 1))
 		
-		for i in range(1, seq_len):
-			pre_tag, cur_tag = cur_tag, tags[i].view(-1, 1)
-			yi = self.embedding(pre_tag)
-			out, h = self.gru(yi, h)
-			transitions = self.linear(out.squeeze(1))
-			current_score = transitions.gather(1, cur_tag).squeeze(1) + emissions[0].gather(1, cur_tag).squeeze(1)
-			scores += current_score * mask[i]
+		x = th.cat((sos_mat, tags), dim=1)[:, :-1]
+		input_embed = self.embedding(x)
+		output, h = self.gru(input_embed)  # batch seq_len hidden
+		# batch seq_len num_tag
+		scores = self.joint_network(emissions.contiguous().view(-1, self.num_units),
+									output.contiguous().view(-1, self.hidden_size))
+		
 		return scores
-	
-	def beam_search(self, x, emission, scores, mask, batch_size):
-		"""
-		束搜索最佳路径
-		:param x:
-		:param emission: 发射概率 batch * num_tag
-		:param scores: t-1时刻得分 batch * num_tag
-		:param mask: mask batch
-		:param batch_size: 数据量大小
-		:return:
-		"""
-		path = [[] for _ in range(batch_size)]
-		_score = None
-		_index = None
-		for pre_tag, pre_h, _path in x:
-			out, h = self.rnn_forward(batch_size, pre_tag, pre_h)  # batch * 1 * hidden and 1 * batch * hidden
-			transitions = self.linear(out.squeeze(1))  # batch * num_tag
-			# t-1 score + transitions + emission batch * num_tag
-			score = scores.gather(1, pre_tag) + (transitions + emission) * mask.unsqueeze(1)
-			
-			# score 合并 batch * (num_tag*num_tag)
-			
-			if _score is None:
-				_score = score
-			else:
-				_score = th.cat((_score, score), dim=1)
-			
-			for bt in range(batch_size):
-				cur_path = _path[bt]
-				for kk in range(self.topk):
-					path[bt].append([cur_path + [kk], kk, h[:, bt, :].view(1, 1, -1)])
-		# 选取前k个值 batch * num_tag
-		_scores, index = _score.topk(self.topk)
-		# 排序后前一刻节点和隐藏层， 历史路径记录
-		inputs = []
-		
-		for ii in range(self.topk):
-			tag = Variable(th.zeros((batch_size, 1))).long().to(self.device)
-			cur_path = []
-			hidden = None
-			for bt in range(batch_size):
-				pre_path, cur_tag, h = path[bt][index[bt, ii].item()]
-				if hidden is None:
-					hidden = h
-				else:
-					hidden = th.cat((hidden, h), dim=1)
-				cur_path.append(pre_path)
-				tag[bt, 0] = cur_tag
-			inputs.append([tag, hidden, cur_path])
-		
-		return inputs, _scores
 	
 	def beam_search_decode(self, emissions, batch_size, seq_len, mask=None):
-		out, h = self.rnn_forward(batch_size)
-		transitions = self.linear(out.squeeze(1))
-		scores = transitions + emissions[0]
-		scores = scores * mask[0].unsqueeze(1)
-		# 选取前k个值 batch * num_tag
-		beam = Beam(scores, h, self.topk, seq_len)
-		nodes = beam.get_next_nodes()
-		for t in range(1, seq_len):
-			siblings = []
-			for inputs, hidden in nodes:
-				inputs = inputs.long().to(self.device)
-				out, h = self.rnn_forward(batch_size, inputs, hidden)
-				transitions = self.linear(out.squeeze(1))
-				score = transitions + emissions[t]
-				score = score * mask[t].unsqueeze(1)
-				siblings.append([score, h])
-			nodes = beam.select_k(siblings, t)
-	
-	def log_partition(self, emissions, batch_size, seq_len, mask=None):
-		"""
-		beam search 近似计算logz
-		:param emissions:
-		:param batch_size:
-		:param seq_len:序列长度
-		:param mask:
-		:return:
-		"""
-		out, h = self.rnn_forward(batch_size)
-		transitions = self.linear(out.squeeze(1))
-		scores = transitions + emissions[0]
-		scores = scores * mask[0].unsqueeze(1)
-		# 选取前k个值 batch * num_tag
-		scores, index = scores.topk(self.topk)
-		# 排序后前一刻节点和隐藏层， 历史路径记录
-		inputs = []
-		for ii in range(self.topk):
-			tag = Variable(index[:, ii].unsqueeze(1)).long().to(self.device)
-			cur_path = index[:, ii].unsqueeze(1).cpu().tolist()
-			inputs.append([tag, h, cur_path])
+		x = self.init_label(th.int64, (batch_size * self.topk, 1))
+		hx = self.init_hidden(th.float32, (self.num_layers, batch_size * self.topk, self.hidden_size))
 		
-		for i in range(1, seq_len):
-			inputs, scores = self.beam_search(inputs, emissions[i], scores, mask[i], batch_size)
-		# log_prob = self._log_sum_exp(scores, dim=1)
-		return scores
-	
-	@staticmethod
-	def _log_sum_exp(score, dim):
-		"""
-		A + log sum(exp(x-A)) 防止溢出
-		:param score: batch * num_tag
-		:param dim: dim=1
-		:return: log_prob
-		"""
-		max_score, _ = score.max(dim=dim)
-		log_prob = th.log(th.exp(score - max_score.unsqueeze(dim)).sum(dim=dim))
-		return max_score + log_prob
-	
-	def decode(self, emissions, mask=None):
-		seq_len, batch_size, _ = emissions.size()
-		if mask is None:
-			th.ones(seq_len, batch_size)
-		mask = mask.float()
-		return self._viterbi(emissions, batch_size, seq_len, mask)
-	
-	def search_path(self, batch_size, scores, x, mask):
-		"""
-		最佳路径
-		:param batch_size:
-		:param scores:
-		:param x:
-		:param mask:
-		:return:
-		"""
-		seq_length = mask.long().sum(0)
-		all_path = []
-		for bt in range(batch_size):
-			_, _, path = x[0]
-			cur_path = path[bt][:seq_length[bt]]
-			all_path.append(cur_path)
-		return all_path
-	
-	def _viterbi(self, emissions, batch_size, seq_len, mask):
-		"""
-		维特比反向算法
-		:param emissions: seq_len * batch * num_tag
-		:param mask:
-		:return:
-		"""
+		search_results = emissions.new_zeros((batch_size, self.topk, seq_len)).long()
+		search_bps = emissions.new_zeros((batch_size, self.topk, seq_len)).long()
+		# ignore the inflated copies to avoid duplicate entries in the top k
+		search_scores = th.zeros((batch_size, self.topk, seq_len + 1), device=self.device)
+		search_scores.fill_(-float('Inf'))
+		search_scores.index_fill_(1, th.zeros((1), device=self.device).long(), 0.0)
 		
-		out, h = self.rnn_forward(batch_size)
-		transitions = self.linear(out.squeeze(1))
-		scores = transitions + emissions[0]
-		scores = scores * mask[0].unsqueeze(1)
-		x = [[Variable(th.ones((batch_size, 1), ).long() * kk).to(self.device), h, [[kk] for _ in range(batch_size)]]
-			 for kk in range(self.num_tag)]
-		for i in range(1, seq_len):
-			x, scores = self.beam_search(x, emissions[i], scores, mask[i], batch_size)
-		# log_prob = self._log_sum_exp(scores, dim=1)
-		all_path = self.search_path(batch_size, scores, x, mask)
-		return all_path
+		for step in range(seq_len):
+			x = self.embedding(x)
+			output, hx = self.gru(x, hx)
+			
+			emission = emissions[:, step, :].repeat(1, self.topk).contiguous().view(batch_size * self.topk, -1)
+			
+			score = self.joint_network(emission, output.squeeze(1))
+			# 状态特征分数 + 转移特征分数
+			score = score.contiguous().view(batch_size, self.topk, -1)  # batch k num_tag
+			grow_score = search_scores[:, :, step].contiguous().view(batch_size, self.topk, 1) + score
+			grow_score = grow_score.contiguous().view(batch_size, -1)  # batch * (topk*num_tag)
+			
+			x, hx, kp_score, left_node, kp_beam = self.decision_step(batch_size, grow_score, hx)
+			
+			search_results[:, :, step] = left_node  # t时刻输入id
+			search_bps[:, :, step] = kp_beam  # t时刻输入id
+			search_scores[:, :, step + 1] = kp_score
+		# length = mask.long().sum(0).view(-1, 1, 1).repeat(1, self.topk, 1)
+		# scores = search_scores.gather(2, length).squeeze(2)
+		return search_results, search_bps, search_scores
+	
+	def search_backward(self, left_nodes, kp_beams, kp_scores, mask):
+		
+		"""
+		args:
+			left_nodes: int64 Tensor with shape [batch, num_samples, seq_len], where seq_len is the maximum of the true length in this minibatch.
+			kp_beams: int64 Tensor with shape [batch, num_samples, seq_len].
+			kp_scores: float32 Tensor with shape [batch, num_samples, seq_len+1].
+			mask: int64 Tensor with shape [batch,seq_len].
 
-
-class Beam:
-	def __init__(self, score, hidden, num_beam, seq_len):
+		return :
+			search_results: int64 Tensor with shape [batch, num_samples, seq_len].
 		"""
-		root : (score, hidden)
-		batch * vocab_size
-		"""
-		# score, hidden = root
-		score = score.cpu()
-		self.num_beam = num_beam
-		self.seq_len = seq_len
-		self.batch_size = score.size()[0]
-		self.hidden = th.zeros_like(hidden)
-		s, i = score.topk(num_beam)
-		# s = s.data
-		i = i.data
-		self.beams = []
-		for ii in range(num_beam):
-			path = th.zeros(self.batch_size, seq_len)
-			path[:, 0] = i[:, ii]
-			beam = [s[:, ii], path, hidden]
-			self.beams.append(beam)
+		length = mask.long().sum(1)
+		batch_size, num_samples, seq_lens = left_nodes.size()
+		
+		search_results = left_nodes.new_zeros((batch_size, num_samples, seq_lens)).long()
+		path = []
+		for n in range(batch_size):
+			
+			t = (length[n] - 1)
+			last_index = th.arange(num_samples).to(self.device).long()
+			
+			search_results[n, :, t] = left_nodes[n, :, t]
+			
+			ancestor_index = last_index
+			
+			for j in range(length[n] - 2, -1, -1):
+				ancestor_index = th.index_select(kp_beams[n, :, j + 1], 0, ancestor_index)
+				search_results[n, :, j] = th.index_select(left_nodes[n, :, j], 0, ancestor_index)
+			path.append(search_results[n, 0, :length[n]].cpu().tolist())
+		return search_results, path
 	
-	def select_k(self, siblings, t):
+	def decision_step(self, batch_size, score, hx):
 		"""
-		siblings : [score,hidden]
+		排序 从topk* num_tag中选取topk个最大值
+		:param batch_size:
+		:param score:
+		:param hx:
+		:return:
 		"""
-		candidate = []
-		for p_index, (score, hidden) in enumerate(siblings):
-			score = score.cpu()
-			parents = self.beams[p_index]  # (cummulated score, list of sequence)
-			s, i = score.topk(self.num_beam)
-			i = i.data
-			batch_size, num_tag = score.size()
-			for kk in range(self.num_beam):
-				vocab_id = copy.deepcopy(parents[1])
-				vocab_id[:, t] = i[:, kk]
-				current_score = parents[0] + s[:, kk]
-				candidate.append([current_score, vocab_id, hidden])
-		# 候选集排序
-		beams = [[th.zeros(self.batch_size), th.zeros(self.batch_size, self.seq_len, dtype=th.int),
-				  th.zeros_like(self.hidden)] for _ in range(self.num_beam)]
-		for ii in range(self.batch_size):
-			beam = [[cand[0][ii], cand[1][ii, :], cand[2][:, ii]] for cand in candidate]
-			beam = sorted(beam, key=lambda x: x[0], reverse=True)[:self.num_beam]
-			for kk in range(self.num_beam):
-				beams[kk][0][ii] = beam[kk][0]
-				beams[kk][1][ii, :] = beam[kk][1]
-				beams[kk][2][:, ii] = beam[kk][2]
-		self.beams = beams
-		# last_input, hidden
-		return [[b[1][:, t], b[2]] for b in self.beams]
-	
-	def get_best_seq(self):
-		return self.beams[0][1]
-	
-	def get_next_nodes(self):
-		return [[b[1][:, 0], b[2]] for b in self.beams]
+		topv, topi = th.topk(score, self.topk)
+		class_id = th.fmod(topi, self.num_tag).long()
+		beam_id = th.div(topi, self.num_tag).long()
+		x = class_id.contiguous().view(-1, 1)
+		
+		batch_offset = (th.arange(batch_size) * self.topk).view(batch_size, 1).to(self.device).long()
+		
+		state_id = batch_offset + beam_id
+		state_id = state_id.view(-1)
+		hx = th.index_select(hx, 1, state_id).view(-1, batch_size * self.topk, self.hidden_size)
+		
+		return x, hx, topv, class_id, beam_id
 
 
 class CRF1(nn.Module):

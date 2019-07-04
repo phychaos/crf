@@ -18,7 +18,7 @@ class RNNCRF(nn.Module):
 		self.embedding = nn.Embedding(vocab_size, embed_size, _weight=pre_train)
 		self.rnn = nn.LSTM(embed_size, num_units, num_layers=num_layers, batch_first=True, bidirectional=True)
 		self.linear = nn.Linear(2 * num_units, num_tag)
-
+	
 	def forward(self, x, y, seq_lens):
 		"""
 		训练模型
@@ -28,15 +28,14 @@ class RNNCRF(nn.Module):
 		:return:
 		"""
 		emissions, mask = self.rnn_layer(x, seq_lens)
-		loss = -1 * self.crf(emissions, y.transpose(0, 1), mask)
-		return loss
-
+		loss, path = self.crf(emissions, y, mask)
+		return loss, path
+	
 	def test(self, x, y, seq_lens):
 		emissions, mask = self.rnn_layer(x, seq_lens)
-		loss = -1 * self.crf(emissions, y.transpose(0, 1), mask)
-		best_paths = self.crf.decode(emissions, mask=mask)
-		return loss, best_paths
-
+		loss, path = self.crf(emissions, y, mask)
+		return loss, path
+	
 	def rnn_layer(self, x, seq_lens):
 		"""
 		输出发射概率
@@ -48,9 +47,9 @@ class RNNCRF(nn.Module):
 		mask = create_mask(seq_lens, batch_size, max_len, self.use_cuda)
 		embed = self.embedding(x)
 		out, _ = self.rnn(embed)
-		out = self.linear(out)
-		out = out.transpose(0, 1)
-		mask = mask.transpose(0, 1)
+		# out = self.linear(out)
+		out = out
+		mask = mask
 		return out, mask
 
 
