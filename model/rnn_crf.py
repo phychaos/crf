@@ -10,11 +10,12 @@ import torch as th
 
 
 class RNNCRF(nn.Module):
-	def __init__(self, vocab_size, embed_size, num_units, num_layers, num_tag, pre_train, use_cuda):
+	def __init__(self, vocab_size, embed_size, num_units, num_layers, num_tag, label_num_units, topk, pre_train,
+				 use_cuda):
 		super(RNNCRF, self).__init__()
 		self.num_tag = num_tag
 		self.use_cuda = use_cuda
-		self.crf = CRF(num_tag, use_cuda=use_cuda)
+		self.crf = CRF(num_tag, hidden_size=label_num_units, topk=topk, num_units=num_units, use_cuda=use_cuda)
 		self.embedding = nn.Embedding(vocab_size, embed_size, _weight=pre_train)
 		self.rnn = nn.LSTM(embed_size, num_units, num_layers=num_layers, batch_first=True, bidirectional=True)
 		self.linear = nn.Linear(2 * num_units, num_tag)
@@ -47,9 +48,6 @@ class RNNCRF(nn.Module):
 		mask = create_mask(seq_lens, batch_size, max_len, self.use_cuda)
 		embed = self.embedding(x)
 		out, _ = self.rnn(embed)
-		# out = self.linear(out)
-		out = out
-		mask = mask
 		return out, mask
 
 

@@ -25,10 +25,10 @@ def run_rnn():
 	id2tag = {str(idx): tag for tag, idx in tag2id.items()}
 	batch_size = hp.batch_size
 	
-	model = RNNCRF(len(vocab), hp.embed_size, hp.num_units, hp.num_layers, len(tag2id), None, use_cuda)
+	model = RNNCRF(len(vocab), hp.embed_size, hp.num_units, hp.num_layers, len(tag2id),hp.label_num_units,hp.topk, None, use_cuda)
 	if use_cuda:
 		model.cuda()
-	optimizer = optim.SGD(model.parameters(),lr=hp.lr,momentum=0.9,)
+	optimizer = optim.Adam(model.parameters(), lr=hp.lr)
 	scheduler = StepLR(optimizer, step_size=1, gamma=hp.lr_decay)
 	
 	def fit():

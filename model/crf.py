@@ -6,40 +6,24 @@
 import copy
 
 import torch as th
-from typing import List, Optional, Union
 from torch.autograd import Variable
 import torch.nn as nn
-import numpy as np
-import torch.nn.functional as F
-
-
-def construct_label_embedding(num_labels, label_dim, embedd_type):
-	if embedd_type == 'one_hot':
-		table = np.eye(num_labels, dtype=np.float32)
-	elif embedd_type == 'random':
-		scale = np.sqrt(3.0 / label_dim)
-		table = np.random.uniform(-scale, scale, [num_labels, label_dim]).astype(np.float32)
-	else:
-		raise ValueError("embedd type should choose from [one_hot, random]")
-	return table
 
 
 class NeuralCRF(nn.Module):
-	def __init__(self, num_tag, embed_size=100, hidden_size=100, use_cuda=False, num_layers=1, num_units=200):
+	def __init__(self, num_tag, hidden_size=100, num_layers=1, topk=30, num_units=200, use_cuda=False):
 		super(NeuralCRF, self).__init__()
 		self.num_layers = num_layers
 		self.num_units = 2 * num_units
 		self.num_tag = num_tag
-		self.y0 = 0
-		self.topk = 20
+		self.y0 = num_tag
+		self.topk = topk
 		self.hidden_size = hidden_size
 		self.use_cuda = use_cuda
 		self.device = th.device('cuda' if use_cuda else 'cpu')
-		embed_label_table = construct_label_embedding(num_tag, None, 'one_hot')
-		label_embed_tensor = th.from_numpy(embed_label_table)
-		self.embedding = nn.Embedding.from_pretrained(label_embed_tensor, freeze=True)
+		self.embedding = nn.Embedding.from_pretrained(th.eye(num_tag + 1, dtype=th.float32), freeze=True)
 		self.nll_loss = nn.NLLLoss()
-		self.gru = nn.GRU(num_tag, hidden_size, batch_first=True)
+		self.gru = nn.GRU(num_tag + 1, hidden_size, batch_first=True)
 		self.linear = nn.Linear(hidden_size, num_tag)
 		
 		self.jt_nn = nn.Linear(self.num_units + hidden_size, hidden_size)
@@ -73,6 +57,19 @@ class NeuralCRF(nn.Module):
 		loss, _, _ = self.loss(path_score, tags, beam_scores, search_tags, batch_size, seq_len, mask)
 		return loss, path
 	
+	def decode(self, emissions, mask):
+		"""
+		crf 极大似然估计计算损失函数 w*f - logz
+		:param emissions: 发射概率
+		:param mask: pad
+		:return: log(p)
+		"""
+		mask = mask.float()
+		batch_size, seq_len, num_tag = emissions.size()
+		search_results, search_bps, search_scores = self.beam_search_decode(emissions, batch_size, seq_len, mask)
+		search_tags, path = self.search_backward(search_results, search_bps, search_scores, mask)
+		return path
+	
 	def loss(self, path_score, target, search_score, search_target, batch_size, seq_len, mask):
 		"""
 		损失函数
@@ -105,7 +102,6 @@ class NeuralCRF(nn.Module):
 		sample_loss = th.mean(sample_loss, dim=0)
 		# 损失函数 负对数似然函数 -log(exp(path_score)/z) = logz - path_score
 		loss = sample_loss - data_loss
-		# print(loss.item(), sample_loss.item(), data_loss.item())
 		return loss, data_loss, sample_loss
 	
 	def beam_search_scores(self, emissions, search_tags, batch_size, seq_len, mask):
@@ -163,6 +159,7 @@ class NeuralCRF(nn.Module):
 		
 		for step in range(seq_len):
 			x = self.embedding(x)
+			# batch*topk * 1 * hidden
 			output, hx = self.gru(x, hx)
 			
 			emission = emissions[:, step, :].repeat(1, self.topk).contiguous().view(batch_size * self.topk, -1)
@@ -172,14 +169,12 @@ class NeuralCRF(nn.Module):
 			score = score.contiguous().view(batch_size, self.topk, -1)  # batch k num_tag
 			grow_score = search_scores[:, :, step].contiguous().view(batch_size, self.topk, 1) + score
 			grow_score = grow_score.contiguous().view(batch_size, -1)  # batch * (topk*num_tag)
-			
+			# x,left_node 当前时刻输出  kp_beam 当前时刻输入 kp_score当前时刻最佳分数
 			x, hx, kp_score, left_node, kp_beam = self.decision_step(batch_size, grow_score, hx)
 			
-			search_results[:, :, step] = left_node  # t时刻输入id
+			search_results[:, :, step] = left_node  # t时刻输出id
 			search_bps[:, :, step] = kp_beam  # t时刻输入id
 			search_scores[:, :, step + 1] = kp_score
-		# length = mask.long().sum(0).view(-1, 1, 1).repeat(1, self.topk, 1)
-		# scores = search_scores.gather(2, length).squeeze(2)
 		return search_results, search_bps, search_scores
 	
 	def search_backward(self, left_nodes, kp_beams, kp_scores, mask):
@@ -187,7 +182,7 @@ class NeuralCRF(nn.Module):
 		"""
 		args:
 			left_nodes: int64 Tensor with shape [batch, num_samples, seq_len], where seq_len is the maximum of the true length in this minibatch.
-			kp_beams: int64 Tensor with shape [batch, num_samples, seq_len].
+			kp_beams: int64 Tensor with shape [batch, num_samples, seq_len]. 前一时刻输出的索引
 			kp_scores: float32 Tensor with shape [batch, num_samples, seq_len+1].
 			mask: int64 Tensor with shape [batch,seq_len].
 
@@ -201,13 +196,13 @@ class NeuralCRF(nn.Module):
 		path = []
 		for n in range(batch_size):
 			
-			t = (length[n] - 1)
+			t = length[n] - 1  # 句子长度
 			last_index = th.arange(num_samples).to(self.device).long()
 			
 			search_results[n, :, t] = left_nodes[n, :, t]
 			
 			ancestor_index = last_index
-			
+			# 反向追踪路径 kp_beams 前一时刻的输出索引
 			for j in range(length[n] - 2, -1, -1):
 				ancestor_index = th.index_select(kp_beams[n, :, j + 1], 0, ancestor_index)
 				search_results[n, :, j] = th.index_select(left_nodes[n, :, j], 0, ancestor_index)
@@ -222,13 +217,15 @@ class NeuralCRF(nn.Module):
 		:param hx:
 		:return:
 		"""
-		topv, topi = th.topk(score, self.topk)
-		class_id = th.fmod(topi, self.num_tag).long()
-		beam_id = th.div(topi, self.num_tag).long()
+		topv, topi = th.topk(score, self.topk)  # topk*num_tag ->topk
+		class_id = th.fmod(topi, self.num_tag).long()  # 求余数 当前时刻的输出状态
+		beam_id = th.div(topi, self.num_tag).long()  # 求整数 前一时刻输出的索引
+		
 		x = class_id.contiguous().view(-1, 1)
 		
 		batch_offset = (th.arange(batch_size) * self.topk).view(batch_size, 1).to(self.device).long()
 		
+		# 前一时刻的隐状态
 		state_id = batch_offset + beam_id
 		state_id = state_id.view(-1)
 		hx = th.index_select(hx, 1, state_id).view(-1, batch_size * self.topk, self.hidden_size)

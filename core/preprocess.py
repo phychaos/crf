@@ -99,8 +99,7 @@ def preprocess():
 	tags = set([])
 	for tag in train_y:
 		tags.update(tag)
-	tag2id = {tag: idx + 1 for idx, tag in enumerate(tags)}
-	tag2id['sos'] = 0
+	tag2id = {tag: idx for idx, tag in enumerate(tags)}
 	print(tags)
 	train_x, train_y = text2idx(train_x, word2id), text2idx(train_y, tag2id, 0)
 	test_x, test_y = text2idx(test_x, word2id), text2idx(test_y, tag2id, 0)

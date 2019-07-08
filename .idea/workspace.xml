@@ -2,15 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="00b2b208-3ffa-4dbe-b49e-457b7c731b12" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/data/test.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/train.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/preprocess.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/data.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/data.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/tag.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/tag.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/test_ner.data" beforeDir="false" afterPath="$PROJECT_DIR$/data/test_ner.data" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/train_ner.data" beforeDir="false" afterPath="$PROJECT_DIR$/data/train_ner.data" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model/crf.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/crf.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model/rnn_crf.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/rnn_crf.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/run.py" afterDir="false" />
@@ -24,7 +20,7 @@
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/crf$bert_crf.coverage" NAME="bert_crf Coverage Results" MODIFIED="1554712338465" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/model" />
     <SUITE FILE_PATH="coverage/crf$preprocess.coverage" NAME="preprocess Coverage Results" MODIFIED="1554691584787" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/crf$run.coverage" NAME="run Coverage Results" MODIFIED="1562216140600" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/crf$run.coverage" NAME="run Coverage Results" MODIFIED="1562558712751" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="DatabaseView">
     <option name="SHOW_INTERMEDIATE" value="true" />
@@ -45,8 +41,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/config/config.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="86">
-              <caret line="8" column="34" selection-start-line="8" selection-start-column="34" selection-end-line="8" selection-end-column="34" />
+            <state relative-caret-position="341">
+              <caret line="34" column="25" selection-start-line="34" selection-start-column="22" selection-end-line="34" selection-end-column="25" />
             </state>
           </provider>
         </entry>
@@ -54,30 +50,35 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/run.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="266">
-              <caret line="21" column="12" lean-forward="true" selection-start-line="21" selection-start-column="12" selection-end-line="21" selection-end-column="12" />
+            <state relative-caret-position="383">
+              <caret line="93" column="22" selection-start-line="93" selection-start-column="22" selection-end-line="93" selection-end-column="22" />
               <folding>
                 <element signature="e#43#52#0" expanded="true" />
-                <element signature="e#2302#4219#0" />
-                <element signature="e#4239#6043#0" />
+                <element signature="e#568#2371#0" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/model/bert_crf.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="270">
+              <caret line="19" column="32" lean-forward="true" selection-start-line="19" selection-start-column="32" selection-end-line="19" selection-end-column="32" />
+              <folding>
+                <element signature="e#110#170#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/model/crf.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="224">
-              <caret line="33" column="22" selection-start-line="33" selection-start-column="22" selection-end-line="33" selection-end-column="22" />
+            <state relative-caret-position="368">
+              <caret line="126" column="4" lean-forward="true" selection-start-line="126" selection-start-column="4" selection-end-line="126" selection-end-column="4" />
               <folding>
                 <element signature="e#105#116#0" expanded="true" />
-                <element signature="e#3147#3633#0" />
-                <element signature="e#3691#3864#0" />
-                <element signature="e#3936#4478#0" />
-                <element signature="e#6090#7636#0" />
-                <element signature="e#7711#8839#0" />
-                <element signature="e#8893#9472#0" />
               </folding>
             </state>
           </provider>
@@ -86,8 +87,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/core/preprocess.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="149">
-              <caret line="35" column="39" selection-start-line="35" selection-start-column="39" selection-end-line="35" selection-end-column="39" />
+            <state relative-caret-position="1728">
+              <caret line="102" selection-start-line="102" selection-end-line="102" />
               <folding>
                 <element signature="e#43#54#0" expanded="true" />
               </folding>
@@ -107,7 +108,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file:///usr/local/lib/python3.6/dist-packages/torch/optim/optimizer.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="113">
+            <state relative-caret-position="3582">
               <caret line="204" selection-start-line="204" selection-end-line="204" />
             </state>
           </provider>
@@ -116,7 +117,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file:///usr/local/lib/python3.6/dist-packages/torch/nn/modules/sparse.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="179">
+            <state relative-caret-position="2682">
               <caret line="155" selection-start-line="155" selection-end-line="155" />
             </state>
           </provider>
@@ -125,8 +126,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/model/rnn_crf.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="846">
-              <caret line="50" column="17" selection-start-line="50" selection-start-column="17" selection-end-line="50" selection-end-column="17" />
+            <state relative-caret-position="252">
+              <caret line="17" column="110" selection-start-line="17" selection-start-column="23" selection-end-line="17" selection-end-column="110" />
               <folding>
                 <element signature="e#109#130#0" expanded="true" />
               </folding>
@@ -187,9 +188,9 @@
         <option value="$PROJECT_DIR$/data/train_ner.data" />
         <option value="$PROJECT_DIR$/data/test_ner.data" />
         <option value="$PROJECT_DIR$/model/rnn_crf.py" />
-        <option value="$PROJECT_DIR$/config/config.py" />
         <option value="$PROJECT_DIR$/core/preprocess.py" />
         <option value="$PROJECT_DIR$/run.py" />
+        <option value="$PROJECT_DIR$/config/config.py" />
         <option value="$PROJECT_DIR$/model/crf.py" />
       </list>
     </option>
@@ -220,11 +221,6 @@
             <path>
               <item name="crf" type="b2602c69:ProjectViewProjectNode" />
               <item name="crf" type="462c0819:PsiDirectoryNode" />
-              <item name="data" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="crf" type="b2602c69:ProjectViewProjectNode" />
-              <item name="crf" type="462c0819:PsiDirectoryNode" />
               <item name="model" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
@@ -236,7 +232,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../SPMISeq" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
@@ -388,7 +384,8 @@
       <workItem from="1561945864680" duration="25422000" />
       <workItem from="1562039556596" duration="11602000" />
       <workItem from="1562139054943" duration="10050000" />
-      <workItem from="1562203737828" duration="10090000" />
+      <workItem from="1562203737828" duration="19882000" />
+      <workItem from="1562549702175" duration="6576000" />
     </task>
     <task id="LOCAL-00001" summary="crf算法">
       <created>1554373663582</created>
@@ -446,22 +443,29 @@
       <option name="project" value="LOCAL" />
       <updated>1561974015874</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="bert + crf">
+      <created>1562216176012</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1562216176013</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="239968000" />
+    <option name="totallyTimeSpent" value="256336000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="1920" y="27" width="1920" height="988" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.3614973" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.36631015" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32922733" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.5669014" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.34976527" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -593,16 +597,6 @@
     <entry file="file://$PROJECT_DIR$/data/bert_data.json">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
-    <entry file="file://$PROJECT_DIR$/model/bert_crf.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="198">
-          <caret line="15" column="70" selection-start-line="15" selection-start-column="8" selection-end-line="15" selection-end-column="70" />
-          <folding>
-            <element signature="e#110#170#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="FIRST">
@@ -683,23 +677,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/model/rnn_crf.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="846">
-          <caret line="50" column="17" selection-start-line="50" selection-start-column="17" selection-end-line="50" selection-end-column="17" />
-          <folding>
-            <element signature="e#109#130#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file:///usr/local/lib/python3.6/dist-packages/torch/nn/modules/sparse.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="179">
-          <caret line="155" selection-start-line="155" selection-end-line="155" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/data/test_ner.data">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="123">
@@ -712,10 +689,13 @@
         <state relative-caret-position="-216" />
       </provider>
     </entry>
-    <entry file="file:///usr/local/lib/python3.6/dist-packages/torch/optim/optimizer.py">
+    <entry file="file://$PROJECT_DIR$/core/preprocess.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="113">
-          <caret line="204" selection-start-line="204" selection-end-line="204" />
+        <state relative-caret-position="1728">
+          <caret line="102" selection-start-line="102" selection-end-line="102" />
+          <folding>
+            <element signature="e#43#54#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -726,47 +706,64 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/config/config.py">
+    <entry file="file:///usr/local/lib/python3.6/dist-packages/torch/optim/optimizer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="86">
-          <caret line="8" column="34" selection-start-line="8" selection-start-column="34" selection-end-line="8" selection-end-column="34" />
+        <state relative-caret-position="3582">
+          <caret line="204" selection-start-line="204" selection-end-line="204" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/core/preprocess.py">
+    <entry file="file:///usr/local/lib/python3.6/dist-packages/torch/nn/modules/sparse.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="149">
-          <caret line="35" column="39" selection-start-line="35" selection-start-column="39" selection-end-line="35" selection-end-column="39" />
+        <state relative-caret-position="2682">
+          <caret line="155" selection-start-line="155" selection-end-line="155" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/model/rnn_crf.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="252">
+          <caret line="17" column="110" selection-start-line="17" selection-start-column="23" selection-end-line="17" selection-end-column="110" />
           <folding>
-            <element signature="e#43#54#0" expanded="true" />
+            <element signature="e#109#130#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/config/config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="341">
+          <caret line="34" column="25" selection-start-line="34" selection-start-column="22" selection-end-line="34" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/model/crf.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="368">
+          <caret line="126" column="4" lean-forward="true" selection-start-line="126" selection-start-column="4" selection-end-line="126" selection-end-column="4" />
+          <folding>
+            <element signature="e#105#116#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/run.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
-          <caret line="21" column="12" lean-forward="true" selection-start-line="21" selection-start-column="12" selection-end-line="21" selection-end-column="12" />
+        <state relative-caret-position="383">
+          <caret line="93" column="22" selection-start-line="93" selection-start-column="22" selection-end-line="93" selection-end-column="22" />
           <folding>
             <element signature="e#43#52#0" expanded="true" />
-            <element signature="e#2302#4219#0" />
-            <element signature="e#4239#6043#0" />
+            <element signature="e#568#2371#0" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/model/crf.py">
+    <entry file="file://$PROJECT_DIR$/model/bert_crf.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="224">
-          <caret line="33" column="22" selection-start-line="33" selection-start-column="22" selection-end-line="33" selection-end-column="22" />
+        <state relative-caret-position="270">
+          <caret line="19" column="32" lean-forward="true" selection-start-line="19" selection-start-column="32" selection-end-line="19" selection-end-column="32" />
           <folding>
-            <element signature="e#105#116#0" expanded="true" />
-            <element signature="e#3147#3633#0" />
-            <element signature="e#3691#3864#0" />
-            <element signature="e#3936#4478#0" />
-            <element signature="e#6090#7636#0" />
-            <element signature="e#7711#8839#0" />
-            <element signature="e#8893#9472#0" />
+            <element signature="e#110#170#0" expanded="true" />
           </folding>
         </state>
       </provider>

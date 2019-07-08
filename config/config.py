@@ -23,15 +23,17 @@ ELMO_PRETAIN_PATH = os.path.join(os.getcwd(), 'elmo_model')
 ELMO_DATA_JSON = os.path.join(os.getcwd(), 'data/elmo_data.json')
 ELMO_TAG2ID_JSON = os.path.join(os.getcwd(), 'data/elmo_tag.json')
 MODEL_PATH = os.path.join(os.getcwd(), 'data/model_bert.pkl')
-epochs = 30
+epochs = 60
 
 
 class HyperParams:
-	num_layers = 1
-	batch_size = 32
-	lr = 1e-2
-	num_units = 200
-	embed_size = 512
+	num_layers = 2
+	batch_size = 64
+	lr = 5e-4
+	num_units = 150
+	embed_size = 200
+	label_num_units = 100
+	topk = 25
 	lr_decay = 0.9
 
 
